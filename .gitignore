@@ -1,0 +1,57 @@
+#
+# pyboot3 packages/.gitignore
+#
+# This requires a special .gitignore file because it is a prepackages
+# set of files. It won't ever be changed by the user/developer when
+# deploying a virtualenv or publishing, however it will be used by
+# me when upgrading packages while performing maintenance on pyboot3
+#
+# AG
+#
+!/.gitignore
+!/requirements.txt  # symlink to venv/requirements.txt to placate pycharm
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+/dist
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+*backup*
+var/
+wheels/
+.installed.cfg
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+*.mo
+*.pot
+*.log
+local_settings.py
+instance/
+.webassets-cache
+.scrapy
+docs/_build/
+target/
+.ipynb_checkpoints
+.python-version
+.env
+.venv
+ENV/
