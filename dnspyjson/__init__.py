@@ -68,3 +68,7 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
         return json.loads(structured_answer_string)
 
     return structured_answer_string
+
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
