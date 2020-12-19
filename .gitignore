@@ -10,6 +10,9 @@
 #
 !/.gitignore
 !/requirements.txt  # symlink to venv/requirements.txt to placate pycharm
+dns.out
+*.json
+*.ndjson
 __pycache__/
 *.py[cod]
 *$py.class
