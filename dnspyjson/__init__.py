@@ -45,22 +45,19 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
     override this an receive a native Python object by setting `as_native_object=True`
 
     If you would like to save the JSON string to a file, set `to_file` to a str value with
-    the path to the file to be created
-
-
-    """
+    the path to the file to be created"""
     assert isinstance(answer, dns.resolver.Answer)
     exclude_keys = [] if include_response_blob is True else ['response']
     structured_answer_string = json.dumps(
         {k: v for k, v in answer.__dict__.items() if k not in exclude_keys},
-        cls=DNSEncoder, **kwargs)
+        cls=DNSEncoder, enhanced_decode=True, rdtype=answer.rdtype, **kwargs)
 
     if to_file is not None:
         try:
             with open(to_file, mode='w') as outfd:
                 outfd.write(structured_answer_string)
         except OSError as err:
-            sys.stderr.write('ERROR: While writing file ({})'.format(os.strerror(err.errno)))
+            sys.stderr.write('ERROR: While writing file ({})\n'.format(os.strerror(err.errno)))
             sys.stderr.write('WARN:  Unable to write file {}, returning {} result from function anyway\n'.format(
                 to_file, 'string' if as_native_object is False else 'Python object'))
 
@@ -69,6 +66,6 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
 
     return structured_answer_string
 
-from ._version import get_versions
+from ._version import get_versions  # noqa
 __version__ = get_versions()['version']
 del get_versions
