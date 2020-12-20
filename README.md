@@ -60,7 +60,18 @@ Confirmed working against all sorts of different Answer types, including but not
 
 ### Usage
 
-It is recommended that you use the wrapper function `dnspyjson.dns_answer_to_json` as opposed to trying to use the `json.JSONEncoder` subclass () directly. It's not as straightforward as specfying `cls=dnspyjson.DNSEncoder`. You're welcome to do it anyway if you'd like, it would look roughly like this:
+You can just call the wrapper/public interface and pass a `dnspython` `Answer` object as the first argument:
+
+```
+import dnspython
+
+answer = resolver.resolve(qname, qtype)
+dns_answer_to_json(answer)
+```
+
+For more details, see `wrap_query()` in `tests/test.py`
+
+It is recommended that you use that wrapper function `dnspyjson.dns_answer_to_json` as opposed to trying to use the `json.JSONEncoder` subclass () directly. It's not as straightforward as specfying `cls=dnspyjson.DNSEncoder`. You're welcome to do it anyway if you'd like, it would look roughly like this:
 
 ```
     assert isinstance(answer, dns.resolver.Answer)
@@ -89,7 +100,7 @@ What follows are a few *very* brief example of how you can use `JSONB` columns i
 
 #### Create a very basic table with a `JSONB` column
 
-Create a table with an autoincrementing ID, a creation timestamp, and a `JSONB` column to store the JSON data in an indexable way:
+Create a table with an auto-incrementing ID, a creation timestamp, and a `JSONB` column to store the JSON data in an indexable way:
 
 ```
 CREATE TABLE dns_answer (
