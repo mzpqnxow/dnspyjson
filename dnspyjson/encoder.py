@@ -13,6 +13,8 @@ import dns.resolver
 import dns.rrset
 import dns.rdatatype
 
+DEVELOPER_MODE = False
+
 
 class DNSEncoder(json.JSONEncoder):
     """JSON serialize dnspython answers"""
@@ -21,8 +23,8 @@ class DNSEncoder(json.JSONEncoder):
     def __init__(self, *args, **kwargs):
         """Constructor to facilitate "enhanced" decoding of certain datatypes based on Answer rdtype
 
-        Allow passing `rdtype` and `enhanced_decode` as kwargs to communicate the type
-        and if "enhanced" decode should be performed
+        Allow passing `enhanced_decode` as kwarg to communicate if "enhanced" decode should be
+        performed on the Answer/RRsets
 
         What is "enhanced" decoding? This will most likely facilitate parsing of certain fields
         in certain types of well-known records that may not be straightforward without knowing
@@ -32,19 +34,9 @@ class DNSEncoder(json.JSONEncoder):
         Or certain types of records that have epoch-time values in them, that can be detected
         with some basic heuristics, but would be better off with this extra contextual data
 
-       So `rdtype` and `enhanced_decode` don't currently do *anything* but they're there for
-       future use, should it be useful. There's really no other way to get this data in
-       context when `default()` is running, which is why it's implemented here. When `default()`
-       is invoked, it gets only the lower-level bits and pieces of the `Answer`, not the `Answer`
-       itself, so it's too late to try to figure out context without explicitly passing it in
-       from the the actual `dumps()` call. Another reason you should just use`dns_answer_to_json()`
-       as opposed to using `dumps()` and specifying the `cls` manually. It's annoying to remember
-       to pass the answer yourself, probably :>
-
-       Make sure that those two `kwargs` are popped off of the `kwargs` dict so they don't confuse
-       the `json.JSONEncoder` constructor (that's why they're handled *before* `super()` is called
-       """
-        self._qtype = kwargs.pop('rdtype', None)
+        Make sure that those two `kwargs` are popped off of the `kwargs` dict so they don't confuse
+        the `json.JSONEncoder` constructor (that's why they're handled *before* `super()` is called
+        """
         self._enhanced_decode = kwargs.pop('enhanced_decode', False)
         # It's possible another encoding may be preferred, but probably not
         # Maybe ISO-8859-1? Nah, I'm thinking probably not. Meh.
@@ -77,12 +69,17 @@ class DNSEncoder(json.JSONEncoder):
 
         if isinstance(obj, dns.rrset.RRset):
             encoded = list()
+            # Extract the outer TTL and put it inside each answer
+            # Otherwise, we don't see it at all because it's not contained within each
+            # Need to look into what (if anything) is in the RRset that we may want to explicitly
+            # extract and put somewhere
+            ttl = obj.ttl
             for answer in obj.items:
                 # There may be a more correct way to do this, without having to directly
                 # access the protected method, but I kind of doubt it. I'm not too worried
                 # about it, doing it this way allows it to work on any type of Answer
                 slots = answer._get_all_slots()  # noqa, pylint: disable=protected-access
-                record = {}
+                record = {'ttl': ttl}
                 for slot in set(slots):
                     value = getattr(answer, slot)
                     # This block intentionally cascades, it doesn't break or return and
@@ -122,7 +119,7 @@ class DNSEncoder(json.JSONEncoder):
 
                     # Fail
                     if not isinstance(value, self.KNOWN_TYPES):
-                        if False:  # noqa
+                        if DEVELOPER_MODE:  # noqa
                             # noqa: Developer can uncomment this case
                             import pdb
                             pdb.set_trace()

@@ -5,6 +5,7 @@ invoke json.dumps with the custom serializer
 
 (C) 2020, copyright@mzpqnxow.com
 """
+import datetime
 import json
 import os
 import sys
@@ -48,9 +49,14 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
     the path to the file to be created"""
     assert isinstance(answer, dns.resolver.Answer)
     exclude_keys = [] if include_response_blob is True else ['response']
+
+    # Create some artificial values for prettier output
+    answer.__dict__['isoformat_expiration'] = datetime.datetime.utcfromtimestamp(int(answer.expiration)).isoformat()
+    answer.__dict__['request_timestamp'] = datetime.datetime.utcnow().isoformat()
+
     structured_answer_string = json.dumps(
         {k: v for k, v in answer.__dict__.items() if k not in exclude_keys},
-        cls=DNSEncoder, enhanced_decode=True, rdtype=answer.rdtype, **kwargs)
+        cls=DNSEncoder, enhanced_decode=True, **kwargs)
 
     if to_file is not None:
         try:
