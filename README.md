@@ -71,10 +71,12 @@ dns_answer_to_json(answer)
 
 For more details, see `wrap_query()` in `tests/test.py`
 
-It is recommended that you use that wrapper function `dnspyjson.dns_answer_to_json` as opposed to trying to use the `json.JSONEncoder` subclass () directly. It's not as straightforward as specfying `cls=dnspyjson.DNSEncoder`. You're welcome to do it anyway if you'd like, it would look roughly like this:
+It is recommended that you use that wrapper function `dnspyjson.dns_answer_to_json` as opposed to trying to use the `json.JSONEncoder` subclass () directly. For one, it's not as straightforward as specifying `cls=dnspyjson.DNSEncoder` on an `Answer` object. If you do so, you will be missing the isoformat of the expiration time, though this may not be important to you. You're welcome to do it anyway if you'd like, but model it after the wrapper function to see how to do it properly! Roughly, it looks as follows:
 
 ```
     assert isinstance(answer, dns.resolver.Answer)
+    # Create some artificial values for prettier output
+    answer.__dict__['expiration_isoformat'] = datetime.datetime.utcfromtimestamp(int(answer.expiration)).isoformat()    
     exclude_keys = [] if include_response_blob is True else ['response']
     structured_answer_string = json.dumps(
         {k: v for k, v in answer.__dict__.items() if k not in exclude_keys},
