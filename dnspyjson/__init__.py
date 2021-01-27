@@ -19,6 +19,7 @@ from dnspyjson.encoder import DNSEncoder
 def dns_answer_to_json(answer: dns.resolver.Answer,
                        include_response_blob: bool = False,
                        as_native_object: bool = False,
+                       include_rdcomment: bool = False,
                        to_file: Union[None, str] = None, **kwargs) -> Union[dict, str]:
     """Serialize a dnspython Answer into JSON or a native Python object, optionally writing to a file
 
@@ -33,10 +34,11 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
     :type kwargs: dict
     :return: A serialized representation of the answer to be used as JSON or a native Python object
     :rtype: dict if `as_native_object` is True, otherwise str
-
+    :param include_rdcomment: Include the rdcomment field, which will usually be null except in special cases
+    :type include_rdcomment: bool
 
     Notes
-    =====
+    -----
     By default, include_response_blob is set to False. This filters out the `response` attribute
     from the dns.resolver.Answer object. This attribute is an unstructured string representation
     of the Answer object and is of little value alongside a structured representation. If you
@@ -56,7 +58,7 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
 
     structured_answer_string = json.dumps(
         {k: v for k, v in answer.__dict__.items() if k not in exclude_keys},
-        cls=DNSEncoder, enhanced_decode=True, **kwargs)
+        cls=DNSEncoder, enhanced_decode=True, include_rdcomment=include_rdcomment, **kwargs)
 
     if to_file is not None:
         try:
