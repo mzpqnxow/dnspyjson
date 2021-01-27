@@ -1,0 +1,408 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Build a Python virtual environment without setuptools, virtualenv and
+other dependencies. Useful when building on "fresh" systems or those
+which for some reason do not have the required dependencies available
+
+Support Python3 only
+No more Python2 support
+
+See Makefile and/or README.md for usage information
+
+Copyright (C) 2018
+    Adam Greene <copyright@mzpqnxow.com>
+    David Marker <dave@freedave.net>
+
+Please see COPYING for terms
+"""
+
+# stdlib
+from configparser import (
+    ConfigParser,
+    NoOptionError,
+    NoSectionError
+)
+from contextlib import contextmanager
+from datetime import datetime
+from errno import ENOENT, ENOTEMPTY
+from os import (
+    chdir,
+    environ,
+    getcwd,
+    getuid,
+    mkdir,
+    unlink
+)
+from os.path import (
+    abspath,
+    dirname,
+    exists,
+    isdir,
+    join as join_path,
+    realpath,
+    sep as dirsep
+)
+import pwd
+from shutil import copy as cp, rmtree, which
+import subprocess
+import sys
+from time import sleep
+
+RUNNING_PYTHON_VERSION = sys.version_info[0]
+assert RUNNING_PYTHON_VERSION == 3
+# Always know where the script is running from
+CURDIR = dirname(abspath(__file__))
+# Basic required directories for a virtualenv
+VENV_DIRS = set(['lib', 'bin', 'include'])
+PIP_CONF = 'pip.conf'
+INTERACTIVE = '.interactive'
+# Taken from etc/
+INI_FILES = set([INTERACTIVE, PIP_CONF])
+# Put your dependencies in these files in your empty venv directory
+PKG_REQUIREMENT_FILEPATHS = set(['requirements.txt'])
+PKG_CONSTRAINT_FILEPATHS = set(['constraints.txt'])
+
+# Override this with `make dev PYTHON3=/path/to/python3.x
+DEFAULT_VENV_BASE_PYTHON = which('python3')
+PYVERSION = 3
+
+
+def log(msg):
+    sys.stderr.write('{}\n'.format(msg))
+
+
+def pip_proxy():
+    """Parse pip.conf to get proxy settings to pass on to easy_install
+
+    This is a little bit controversial because we make some decisions
+    without the consent of the user.  We very intentionally honor
+    pip.ini proxy settings as well as proxy settings in the environment.
+
+    The reason for honoring pip.ini proxy settings (manually) is to work
+    around a somewhat rare (but not theoretical) bug where easy_install is
+    invoked during pip. If pip has a proxy set in pip.ini, it does
+    not get honored by easy_install, causing dependency fetches to
+    fail in environments with hard requirements for a proxy
+
+    To reproduce failure, set your proxy in pip.ini in an environment
+    where a proxy is *REQUIRED* and try to pip install pandas. It will
+    bomb out, saying it can't get numpy.
+
+    Rather than making the user specify the proxy in pip.ini AND in the
+    environment, we read pip.ini and set it in the environment for
+    easy_install to consume.
+
+    This approach fixes that. Hopefully it is now no longer an issue
+    """
+    config = ConfigParser()
+    config.read(PIP_CONF)
+    try:
+        proxy = config.get('global', 'proxy')
+    except (NoSectionError, NoOptionError):
+        proxy = None
+    return proxy
+
+
+def basic_env(cwd, easy_install_proxy=True):
+    """Provide a clean environment with bare essentials"""
+    global PYVERSION
+    pent = pwd.getpwuid(getuid())
+    env = dict()
+    env['PYTHONPATH'] = '{}/packages/lib/python{}/site-packages/'.format(
+        cwd, PYVERSION)
+    env['HOME'] = pent.pw_dir
+    env['SHELL'] = pent.pw_shell
+    env['LOGNAME'] = pent.pw_name
+    env['PWD'] = getcwd()
+
+    if easy_install_proxy is True:
+        # For edgecases where pip invokes easy_install and proxy is only
+        # set in pip.ini, not in the environment. wehn easy_setup runs,
+        # it will *not* use the proxy settings from pip.ini, so we set
+        # it explicitly in the environment or things will break part
+        # way through, which is a mess to troubleshoot
+        proxy = pip_proxy()
+        #  NOTE(AG): To be clear: This overrides the environment with what
+        #            is set in pip config. This is/was required for easy_setup
+        #            which does not honor pip config but still may need to us
+        #            HTTP to access the Internet or somewhere else via proxy
+        if proxy:
+            environ['http_proxy'] = proxy
+            environ['https_proxy'] = proxy
+
+    for key in ('PATH', 'TERM', 'MAIL', 'http_proxy', 'https_proxy'):
+        if key in environ:
+            env[key] = environ[key]
+    return env
+
+
+@contextmanager
+def pushd(directory):
+    """Emulate Bash pushd/popd"""
+    cwd = getcwd()
+    try:
+        chdir(directory)
+    except OSError as err:
+        if err.errno == ENOENT:
+            raise RuntimeError('%s does not exist !!' % directory)
+        else:
+            raise err
+    yield
+    chdir(cwd)
+
+
+def destroy(explain, vdirs, cfg):
+    """ Destroy a previously created virtual environment """
+    log('%s: destroying %s' % (explain, ('/ '.join(vdirs) + dirsep)))
+    # rmtree can fail if you work SSHFS/NFS/CIFS/SMB due to locking issues
+    retry = 10  # Give it 10 tries, then quit
+    done = False
+    while retry > 0 and not done:
+        retry, done = (retry - 1, True)
+        for directory in vdirs:
+            try:
+                rmtree(directory)
+            except OSError as err:
+                if err.errno == ENOENT:
+                    pass  # directory already gone
+                elif err.errno == ENOTEMPTY:
+                    done = False  # try again if retry isn't exhausted.
+                else:
+                    raise err  # re-raise something is wrong.
+        if not done:
+            # SSHFS/NFS/CIFS/SMB or some other filesystem locking issue
+            sleep(2)
+
+    log('%s: destroying %s' % (explain, (' '.join(cfg))))
+    for cfgfile in cfg:
+        try:
+            unlink(cfgfile)
+        except (IOError, OSError):
+            pass
+
+
+def invoke_virtualenv(virtualenv_exe, python, pipini, interactive, cwd):
+    """ Run virtualenv with the arguments and environment set """
+    cp(pipini, PIP_CONF)
+    cp(interactive, INTERACTIVE)
+
+    try:
+        # TODO(AG): Look into virtualenv options in latest version of virtualenv
+        subprocess.check_call([python, virtualenv_exe, '--clear-app-data', '-p', python, '.'],
+                              env=basic_env(cwd))
+    except OSError as err:
+        if err.errno == ENOENT:
+            raise RuntimeError('Python %s does not exist !!' % python)
+        else:
+            raise err
+
+
+def freeze(*args, **kwargs):
+    pip(*args, **kwargs)
+
+
+def install(*args, **kwargs):
+    pip(*args, **kwargs)
+
+
+def mkdir_p(dirname):
+    """emulate mkdir -p behavior"""
+    path_stack = ''
+    for element in dirname.split(dirsep):
+        if not isdir(dirname):
+            if not element:
+                continue
+            path_stack = join_path(dirsep, path_stack, element)
+            if not isdir(path_stack):
+                mkdir(path_stack)
+
+
+def pip(pip_exe, ini, requirements, constraints, cwd, action='install', prerelease=False, easy_install_proxy=True):
+    """Set 'PIP_CONFIG_FILE' environment variable to ini, then call exe as pip using requirements file
+
+    This is where things get build
+    """
+    environ['PIP_CONFIG_FILE'] = ini
+    reqs_file = csts_file = None
+
+    for reqs_file in requirements:
+        if exists(reqs_file):
+            break
+    else:
+        log('WARNING: none of {} exist, skipping pip!'.format(str(requirements)))
+        return
+
+    for csts_file in constraints:
+        if exists(csts_file):
+            break
+    else:
+        log('WARNING: none of {} exist, using /dev/null for constraints!'.format(str(constraints)))
+        csts_file = '/dev/null'
+
+    # TODO: Look into pip install/freeze parameters in latest version of pip
+    install_arguments = [
+        pip_exe, 'install',
+        '--compile',
+        '--progress-bar', 'off',
+        '-I',
+        '-r', reqs_file,
+        '-c', csts_file]
+    if prerelease is True:
+        install_arguments.append('--pre')
+
+    # Install a virtualenv or Freeze an already built virtualenv
+    pip_arguments = {
+        'install': install_arguments,
+        'freeze': [
+            pip_exe, 'freeze',
+            '--no-cache-dir',
+            '-l',
+            '-r', reqs_file]}
+
+    assert action in pip_arguments
+
+    if action == 'install':
+        try:
+            subprocess.check_call(
+                pip_arguments[action],
+                env=basic_env(cwd, easy_install_proxy=easy_install_proxy))
+        except Exception as err:
+            log('error invoking pip install {}'.format(err))
+            raise
+    elif action == 'freeze':
+        try:
+            byte_output = subprocess.check_output(
+                pip_arguments[action], env=basic_env(cwd))
+            frozen_fullpath = frozen_requirements_fullpath(reqs_file)
+            with open(frozen_fullpath, 'wb') as frozenfd:
+                frozenfd.write(byte_output)
+                log('Writing frozen requirements file to {}...'.format(frozen_fullpath))
+                log('# ---- END ---- #')
+        except subprocess.CalledProcessError as err:
+            log('error invoking pip freeze {}'.format(err))
+            raise
+
+
+def frozen_requirements_fullpath(req):
+    """Freeze the installed versions of packages in your venv
+
+    This function should be changed or should just go away
+    """
+    base_requirements_path = (join_path(dirname(realpath(req))))
+    mkdir_p(base_requirements_path)
+    today_yyyymmdd = datetime.today().strftime('%Y-%m-%d.%S')
+    frozen_filename = 'frozen-requirements-{}'.format(
+        today_yyyymmdd)
+    frozen_fullpath = join_path(base_requirements_path, frozen_filename)
+    return frozen_fullpath
+
+
+def main():
+    """Entry-point, derp"""
+    # This is a relic from when we support 2.6, to bootstrap from scratch on
+    # very old (generally commercial) UNIX-based systems. Good memories, right
+    # Dave? :>
+    from optparse import OptionParser
+    global DEFAULT_VENV_BASE_PYTHON, PYVERSION
+
+    optparser = OptionParser('usage: %prog [options] <destination>')
+    optparser.add_option(
+        '-p',
+        '--python',
+        action='store',
+        type='string',
+        dest='python',
+        default=DEFAULT_VENV_BASE_PYTHON,
+        help='Specify the full path to python [default={}]'.format(DEFAULT_VENV_BASE_PYTHON))
+    optparser.add_option(
+        '-e',
+        '--disable-easy-install-proxy',
+        action='store_false',
+        dest='easy_install_proxy',
+        default=True,
+        help='Set http(s)_proxy in environment for easy_install to inherit [default=True]')
+    optparser.add_option(
+        '--freeze',
+        action='store_true',
+        dest='freeze',
+        default=False,
+        help='Freeze versions in a venv for future stability (saves requirements.txt first)'
+    )
+    optparser.add_option(
+        '-d',
+        '--destroy',
+        action='store_true',
+        dest='destroy',
+        default=False,
+        help='Destroy a venv [default=False]')
+    optparser.add_option(
+        '-i',
+        '--ini',
+        action='store',
+        dest='inifile',
+        default='pip.ini',
+        help='The pip.ini file to use from the etc/ directory [default=pip.ini]')
+    optparser.add_option(
+        '-P',
+        '--prerelease',
+        action='store_true',
+        dest='prerelease',
+        default=False,
+        help='Use prerelease packages when version is not specified [default=False]')
+
+    (args, venv_dest) = optparser.parse_args()
+
+    if not venv_dest:
+        optparser.error('must specify destination')
+
+    cwd = dirname(abspath(__file__))
+
+    ini_load_path = join_path(cwd, 'etc', args.inifile)
+    virtualenv_run_path = join_path(cwd, 'packages/bin/virtualenv')
+    interactive_load_path = join_path(cwd, 'etc/interactive')
+
+    try:
+        with pushd(venv_dest[0]):
+            if args.destroy:
+                destroy('requested destroy and recreate', VENV_DIRS, INI_FILES)
+                invoke_virtualenv(virtualenv_run_path, args.python,
+                                  ini_load_path, interactive_load_path, cwd)
+            if args.freeze:
+                pip('bin/pip',
+                    ini_load_path,
+                    PKG_REQUIREMENT_FILEPATHS,
+                    PKG_CONSTRAINT_FILEPATHS,
+                    cwd,
+                    action='freeze')
+                exit(0)
+
+            files_exist = [exists(entry) for entry in VENV_DIRS | INI_FILES]
+            if not all(files_exist):
+                # at least one virtualenv dir missing
+                if any(files_exist):
+                    destroy('incomplete virtualenv detected', VENV_DIRS,
+                            INI_FILES)
+                else:
+                    log('no virtual env detected')
+                invoke_virtualenv(virtualenv_run_path, args.python,
+                                  ini_load_path, interactive_load_path, cwd)
+
+            # always try to install the requirements.
+            pip('bin/pip3',
+                ini_load_path,
+                PKG_REQUIREMENT_FILEPATHS,
+                PKG_CONSTRAINT_FILEPATHS,
+                cwd,
+                prerelease=args.prerelease,
+                easy_install_proxy=args.easy_install_proxy,
+                action='install')
+
+    except RuntimeError as err:
+        optparser.error(
+            '%s Destination virtualenv directory and Python interpreter must both exist !!'
+            % (str(err)))
+
+
+if __name__ == '__main__':
+    main()
