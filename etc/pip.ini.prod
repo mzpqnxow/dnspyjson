@@ -1,0 +1,5 @@
+[global]
+no-cache-dir = false
+index-url = https://repository.corporation.com/repository/pypi-proxy/simple/
+trusted-host = repository.corporation.com
+respect-virtualenv = true

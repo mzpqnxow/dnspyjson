@@ -1,0 +1,11 @@
+flake8  # Style
+ipython  # Terminal/console Python interpreter with autocomplete and history
+pep8  # Style
+pycodestyle  # Formatting
+pydocstyle  # Documentation
+pylama  # Linter
+pylint  # Python linting
+pyt  # Security static analysis
+twine  # Package publishing
+yamllint  # Linting for YaML files
+yapf  # Formatting

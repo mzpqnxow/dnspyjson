@@ -1,0 +1,82 @@
+### Requirements
+### Canonical: https://pip.pypa.io/en/stable/user_guide/#id14
+# The following may be of interest:
+#  https://www.python.org/dev/peps/pep-0508/
+#  https://www.python.org/dev/peps/pep-0518/
+#    ## How to specify packages required to *build* your package (e.g. Cython)
+#    - https://www.python.org/dev/peps/pep-0518/#file-format
+
+
+#----------------------------------------------------------------------
+# Host packages on GitHub
+#----------------------------------------------------------------------
+
+### This fulfills the dependency `jq` and uses the tag/branch `setuptools-build`
+# git+https://github.com/mzpqnxow/jq.py@setuptools-build#egg=jq
+
+### Specify master if you want, it's just another branch
+# git+https://github.com/mzpqnxow/jq.py@master#egg=jq
+
+### Use shorthand to specify/default to master
+# git+https://github.com/mzpqnxow/jq.py@#egg=jq
+# git+https://github.com/mzpqnxow/jq.py#egg=jq
+
+
+#----------------------------------------------------------------------
+# Using other source control systems, and installing "editable" 
+#----------------------------------------------------------------------
+## You can access git in any way that other tools can. Here are the boilerplate
+## examples from the documentation. Note these default to the master branch since
+## there is no '@' present
+git://git.example.com/MyProject#egg=MyProject
+git+http://git.example.com/MyProject#egg=MyProject
+git+https://git.example.com/MyProject#egg=MyProject
+git+ssh://git.example.com/MyProject#egg=MyProject
+git+git://git.example.com/MyProject#egg=MyProject
+git+file:///home/user/projects/MyProject#egg=MyProject
+## Using `-e` for "editable" installations
+## You can use `-e` on any of these links and the package will be unpacked
+## in src/ of a virtualenv. This is provided as a way to make live development
+## easier. Just prefix a `-e`
+-e git://git.example.com/MyProject#egg=MyProject
+
+
+
+#----------------------------------------------------------------------
+# Using the local filesystem rather than an index
+#----------------------------------------------------------------------
+
+### Specify a binary blob location (filesystem, URL) where a wheel is
+## This can be very useful when you have to deploy to platforms that are unable
+## to build packages from source, or when doing so is very expensive and slow
+##
+## An example, IBM Power8 (Linux on ppc64le) and Pandas. Pandas takes 8 minutes
+## to build as it isn't parallelized. So it be nicer to build the wheel once
+## and include it in our package, installing it like this:
+
+### Filesystem
+# ./downloads/numpy-1.9.2-cp34-none-win32.whl
+# numpy @ file:///somewhere/...
+### Maybe a wheel is accessible via an HTTP GET
+# http://wxpython.org/Phoenix/snapshot-builds/wxPython_Phoenix-3.0.3.dev1820+49a8884-cp34-none-win_amd64.whl
+
+#----------------------------------------------------------------------
+# Passing build/install parameters for a specific package
+#----------------------------------------------------------------------
+### Pass along parameteres to pip for building/installing a specific package
+## Unfortunately, many packages don't support a lot of the more advanced things
+## like passing along configure system options or low-level things like CFLAGS
+## YMMV, just keep in mind that setuptools isn't magic. Some basic things can
+## be handled by vanilla setuptools but many developers use very non-standard
+## patterns to perform their builds, assuming they will always be distributed
+## as a binary wheel
+# numpy >= 1.2 --global-option="--no-user-cfg" --install-option="--prefix='/usr/local'" --install-option="--no-compile"
+
+#----------------------------------------------------------------------
+# Other pip commandline options are supported, so you can do odd stuff
+#----------------------------------------------------------------------
+### Include constraints file from requirements file
+# If you wanted to, you could specify constraints files from here too
+# It's better to keep the two separate in my opinion
+# -c constraints.txt
+

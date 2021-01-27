@@ -1,0 +1,15 @@
+#
+# pyboot3 venv/.gitignore
+#
+# This requires a special .gitignore file because it is a prepackages
+# set of files. It won't ever be changed by the user/developer when
+# deploying a virtualenv or publishing, however it will be used by
+# me when upgrading packages while performing maintenance on pyboot3
+#
+# AG
+#
+/*    
+!/interactive
+!/*pip.ini*
+!/*pip.conf*
+!/.gitignore

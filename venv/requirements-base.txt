@@ -1,0 +1,21 @@
+# Development packages, useful for linting, publishing, formatting, etc
+# Decent linter
+# pylint
+# pylama                          # linter..
+# isort                           # cleans up imports, configurable
+# seed-isort-config               # an isort companion
+# bandit                          # Static analysis for security issues
+# pydocstyle                      # Keep you on track with documentation style, per pydoc specs
+# ipython                         # This will slow your build and bloat your venv, but it's nice to have
+# YaPF is nice for automatically formatting code that is a mess
+# yapf
+# Wraps pyflakes, pycodestyle and mccabe
+# flake8
+# The correct way to publish to a PyPi repository using twine
+# Using setuptools is no longer the right way to do this
+# See: https://packaging.python.org/tutorials/distributing-packages/
+# twine     
+# Manage versions with versioneer                        
+versioneer
+# In case you're working behind a SOCKS proxy
+# pysocks
