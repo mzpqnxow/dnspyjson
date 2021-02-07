@@ -22,18 +22,18 @@ def output(msg):
     stdout.write(msg + '\n')
 
 
-def json_resolve():
+def json_resolve_main():
     """Entrypoint for json-resolve"""
     if len(sys.argv) < 2:
-        stderr.write('Usage: {} <qname> [qtype]\n'.format(sys.argv[0]))
+        status('Usage: {} <qname> [qtype]\n'.format(sys.argv[0]))
         exit(1)
 
     q_name = sys.argv[1]
     q_type = 'A' if len(sys.argv) < 3 else sys.argv[2]
     nameservers = sys.argv[3:] if len(sys.argv) > 3 else ['1.1.1.1', '8.8.8.8']
 
-    stdout.write('Nameservers')
-    stdout.write('===========')
+    status('Nameservers')
+    status('===========')
     for nameserver in nameservers:
         status('- ' + nameserver)
     if q_type.lower() != 'all':
