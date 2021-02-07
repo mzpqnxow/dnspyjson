@@ -8,19 +8,19 @@ invoke json.dumps with the custom serializer
 import datetime
 import json
 import os
-import sys
-from typing import Union
-
+from typing import Dict, Iterable, Optional, Union
+from sys import stderr
 import dns.resolver
+from dns.resolver import Answer
 
 from dnspyjson.encoder import DNSEncoder
 
 
-def dns_answer_to_json(answer: dns.resolver.Answer,
+def dns_answer_to_json(answer: Answer,
                        include_response_blob: bool = False,
                        as_native_object: bool = False,
                        include_rdcomment: bool = False,
-                       to_file: Union[None, str] = None, **kwargs) -> Union[dict, str]:
+                       to_file: Optional[str] = None, **kwargs) -> Union[dict, str]:
     """Serialize a dnspython Answer into JSON or a native Python object, optionally writing to a file
 
     :param answer: Answer from a dnspython query
@@ -49,10 +49,15 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
 
     If you would like to save the JSON string to a file, set `to_file` to a str value with
     the path to the file to be created"""
-    assert isinstance(answer, dns.resolver.Answer)
+
+    if not isinstance(answer, Answer):
+        raise TypeError('Argument must be a dns.resolver.Answer from dnspython>=2 (not %s)' % type(answer))
+
     exclude_keys = [] if include_response_blob is True else ['response']
 
     # Create some artificial values for prettier output
+    # Assigning attributes to objects you don't define yourself is a
+    # pretty poor practice, so eyes wide open :>
     answer.__dict__['isoformat_expiration'] = datetime.datetime.utcfromtimestamp(int(answer.expiration)).isoformat()
     answer.__dict__['request_timestamp'] = datetime.datetime.utcnow().isoformat()
 
@@ -65,15 +70,37 @@ def dns_answer_to_json(answer: dns.resolver.Answer,
             with open(to_file, mode='w') as outfd:
                 outfd.write(structured_answer_string)
         except OSError as err:
-            sys.stderr.write('ERROR: While writing file ({})\n'.format(os.strerror(err.errno)))
-            sys.stderr.write('WARN:  Unable to write file {}, returning {} result from function anyway\n'.format(
+            stderr.write('ERROR: While writing file ({})\n'.format(os.strerror(err.errno)))
+            stderr.write('WARN:  Unable to write file {}, returning {} result from function anyway\n'.format(
                 to_file, 'string' if as_native_object is False else 'Python object'))
+            raise
 
     if as_native_object is True:
         return json.loads(structured_answer_string)
 
     return structured_answer_string
 
-from ._version import get_versions  # noqa
+
+def json_dns_query(qname: str, qtype: str, resolvers: Optional[Iterable[str]] = None, **kwargs) -> Optional[Union[Dict, str]]:
+    """Simple interface for a DNS query
+
+    >>> from dnspyjson import json_dns_query
+    >>> json_dns_query('test.com', 'TXT', ['4.2.2.2', '8.8.8.8'])
+
+    """
+    try:
+        resolver = dns.resolver.Resolver(configure=resolvers is None)
+        if resolvers is not None:
+            resolver.nameservers = resolvers
+        answer = resolver.resolve(qname, qtype)
+        return dns_answer_to_json(answer, **kwargs)
+    except (dns.exception.Timeout, dns.resolver.NoAnswer, dns.resolver.NoMetaqueries,
+            dns.resolver.NoNameservers, dns.resolver.NXDOMAIN) as err:
+        stderr.write('Failed query with type={}, name={}, resolvers={} ({})\n'.format(
+            qtype, qname, ', '.join(resolvers) if resolvers else 'system', err))
+        return None
+
+
+from ._version import get_versions  # noqa, pylint: disable=wrong-import-position
 __version__ = get_versions()['version']
 del get_versions
