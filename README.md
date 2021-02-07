@@ -1,13 +1,13 @@
 ## dnspyjson: Seamlessly Serialize dnspython2.x Answers Into JSON or Native Python Objects
 
-This package provides a `json.JSONEncoder` for the standard cPython `json` package that allows a `dnspython>=2` response to be easily converted into a JSON string, native Python objects, or a JSON file. It also includes a public interfaces so you don't need to interact directly with the JSON encoder or even with `dnspython` (optional)
+This package provides a `json.JSONEncoder` subclass for the standard cPython `json` package that allows a `dnspython>=2` response to be easily converted into a JSON string, native Python objects, or a JSON file. It also includes a public interfaces so you don't need to interact directly with the JSON encoder or even with `dnspython` (optional)
 
-**NOTE**: See the usage examples below; you can not simply pass the `json.JSONEncoder` sub-class that is implemented in this package directly to `json.dump` using `cls=`
+**NOTE**: See the usage examples below; you can not simply pass the JSON encoder class that is implemented in this package directly to `json.dump` using `cls=`
 
 ### Requirements
 
- * Python >= 3.5 (Python2, Python < 3.5 not tested)
- * dnspython >= 2 (dnspython < 2 not tested)
+ * Python >= 3.5 (Python2 will not work, Python < 3.5 is not tested; note that PEP-484 type hints are used in this code)
+ * dnspython >= 2 (dnspython < 2 will likely not work)
 
 ### Supported Answer Types
 
