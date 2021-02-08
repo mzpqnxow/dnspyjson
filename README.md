@@ -13,6 +13,32 @@ This package provides a `json.JSONEncoder` subclass for the standard cPython `js
 
 There aren't any known types that are lacking support at this time, though there are some enhancements to be made (see TODO section)
 
+### Installing
+
+Install master/latest stable:
+```
+$ pip install 'git+https://github.com/mzpqnxow/dnspyjson@master#egg=dnspyjson'
+```
+
+Install a specific release by tag:
+```
+$ pip install 'git+https://github.com/mzpqnxow/dnspyjson@0.0.8#egg=dnspyjson'
+```
+
+You can also use this syntax in `requirements.txt`
+
+### Using In A Project As A setuptools Dependency
+
+Master/latest stable:
+```
+install_requires = dnspyjson @ git+https://github.com/mzpqnxow/dnspyjson@master#egg=dnspyjson  # Master (latest stable)
+```
+
+Pin a specific release by tag:
+```
+install_requires = dnspyjson @ git+https://github.com/mzpqnxow/dnspyjson@0.0.8#egg=dnspyjson  # Pin to 0.0.8
+```
+
 #### Known Working Query Types
 
 Confirmed working against all sorts of different Answer types, including but not limited to:
